@@ -19,6 +19,14 @@ pub mod vrf_client {
     pub fn init_client(ctx: Context<InitClient>, params: InitClientParams) -> Result<()> {
         InitClient::actuate(&ctx, &params)
     }
+
+    #[access_control(ctx.accounts.validate(&ctx, &params))]
+    pub fn request_randomness(
+        ctx: Context<RequestRandomness>,
+        params: RequestRandomnessParams,
+    ) -> Result<()> {
+        RequestRandomness::actuate(&ctx, &params)
+    }
 }
 
 const STATE_SEED: &[u8] = b"CLIENTSEED";
@@ -42,10 +50,21 @@ pub enum VrfClientErrorCode {
     InvalidVrfAuthorityError,
     #[msg("The max result must not exceed u64")]
     MaxResultExceedsMaximum,
+    #[msg("Invalid VRF account provided.")]
+    InvalidVrfAccount,
+    #[msg("Not a valid Switchboard account")]
+    InvalidSwitchboardAccount,
 }
 
 #[event]
 pub struct VrfClientCreated {
+    pub vrf_client: Pubkey,
+    pub max_result: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct RandomnessRequested {
     pub vrf_client: Pubkey,
     pub max_result: u64,
     pub timestamp: i64,

@@ -4,6 +4,7 @@ import { VrfClient } from "../target/types/vrf_client";
 import { SwitchboardTestContext } from "@switchboard-xyz/sbv2-utils";
 import * as sbv2 from "@switchboard-xyz/switchboard-v2";
 import { PublicKey } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@project-serum/anchor/dist/cjs/utils/token";
 
 describe("vrf-client", () => {
   // Configure the client to use the local cluster.
@@ -100,5 +101,53 @@ describe("vrf-client", () => {
       })
       .rpc();
     console.log("init_client transaction signature", tx);
+  });
+
+  it("request_randomness", async () => {
+    const state = await program.account.vrfClientState.fetch(vrfClientKey);
+    const vrfAccount = new sbv2.VrfAccount({
+      program: switchboard.program,
+      publicKey: state.vrf,
+    });
+    const vrfState = await vrfAccount.loadData();
+    const queueAccount = new sbv2.OracleQueueAccount({
+      program: switchboard.program,
+      publicKey: vrfState.oracleQueue,
+    });
+    const queueState = await queueAccount.loadData();
+    const [permissionAccount, permissionBump] = sbv2.PermissionAccount.fromSeed(
+      switchboard.program,
+      queueState.authority,
+      queueAccount.publicKey,
+      vrfAccount.publicKey
+    );
+    const [programStateAccount, switchboardStateBump] =
+      sbv2.ProgramStateAccount.fromSeed(switchboard.program);
+
+    const request_signature = await program.methods
+      .requestRandomness({
+        switchboardStateBump,
+        permissionBump,
+      })
+      .accounts({
+        state: vrfClientKey,
+        vrf: vrfAccount.publicKey,
+        oracleQueue: queueAccount.publicKey,
+        queueAuthority: queueState.authority,
+        dataBuffer: queueState.dataBuffer,
+        permission: permissionAccount.publicKey,
+        escrow: vrfState.escrow,
+        programState: programStateAccount.publicKey,
+        switchboardProgram: switchboard.program.programId,
+        payerWallet: switchboard.payerTokenWallet,
+        payerAuthority: payer.publicKey,
+        recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+
+    console.log(
+      `request_randomness transaction signature: ${request_signature}`
+    );
   });
 });

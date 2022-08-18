@@ -27,6 +27,14 @@ pub mod vrf_client {
     ) -> Result<()> {
         RequestRandomness::actuate(&ctx, &params)
     }
+
+    #[access_control(ctx.accounts.validate(&ctx, &params))]
+    pub fn consume_randomness(
+        ctx: Context<ConsumeRandomness>,
+        params: ConsumeRandomnessParams,
+    ) -> Result<()> {
+        ConsumeRandomness::actuate(&ctx, &params)
+    }
 }
 
 const STATE_SEED: &[u8] = b"CLIENTSEED";
@@ -67,5 +75,14 @@ pub struct VrfClientCreated {
 pub struct RandomnessRequested {
     pub vrf_client: Pubkey,
     pub max_result: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct VrfClientUpdated {
+    pub vrf_client: Pubkey,
+    pub max_result: u64,
+    pub result_buffer: [u8; 32],
+    pub result: u128,
     pub timestamp: i64,
 }

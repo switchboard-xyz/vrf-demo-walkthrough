@@ -1,7 +1,10 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { VrfClient } from "../target/types/vrf_client";
-import { SwitchboardTestContext } from "@switchboard-xyz/sbv2-utils";
+import {
+  promiseWithTimeout,
+  SwitchboardTestContext,
+} from "@switchboard-xyz/sbv2-utils";
 import * as sbv2 from "@switchboard-xyz/switchboard-v2";
 import { PublicKey } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID } from "@project-serum/anchor/dist/cjs/utils/token";
@@ -55,11 +58,16 @@ describe("vrf-client", () => {
       keypair: vrfKeypair,
       authority: vrfClientKey,
       queue: switchboard.queue,
-      // Useless, will update when consume_randomness instruction is created
       callback: {
         programId: program.programId,
-        accounts: [],
-        ixData: Buffer.from(""),
+        accounts: [
+          { pubkey: vrfClientKey, isSigner: false, isWritable: true },
+          { pubkey: vrfKeypair.publicKey, isSigner: false, isWritable: false },
+        ],
+        ixData: new anchor.BorshInstructionCoder(program.idl).encode(
+          "consumeRandomness",
+          ""
+        ),
       },
     });
     console.log(`Created VRF Account: ${vrfAccount.publicKey}`);
@@ -149,5 +157,54 @@ describe("vrf-client", () => {
     console.log(
       `request_randomness transaction signature: ${request_signature}`
     );
+
+    const result = await awaitCallback(program, vrfClientKey, 20_000);
+
+    console.log(`VrfClient Result: ${result}`);
+
+    return;
   });
 });
+
+async function awaitCallback(
+  program: Program<VrfClient>,
+  vrfClientKey: anchor.web3.PublicKey,
+  timeoutInterval: number,
+  errorMsg = "Timed out waiting for VRF Client callback"
+) {
+  let ws: number | undefined = undefined;
+  const result: anchor.BN = await promiseWithTimeout(
+    timeoutInterval,
+    new Promise((resolve: (result: anchor.BN) => void) => {
+      ws = program.provider.connection.onAccountChange(
+        vrfClientKey,
+        async (
+          accountInfo: anchor.web3.AccountInfo<Buffer>,
+          context: anchor.web3.Context
+        ) => {
+          const clientState =
+            program.account.vrfClientState.coder.accounts.decode(
+              "VrfClientState",
+              accountInfo.data
+            );
+          if (clientState.result.gt(new anchor.BN(0))) {
+            resolve(clientState.result);
+          }
+        }
+      );
+    }).finally(async () => {
+      if (ws) {
+        await program.provider.connection.removeAccountChangeListener(ws);
+      }
+      ws = undefined;
+    }),
+    new Error(errorMsg)
+  ).finally(async () => {
+    if (ws) {
+      await program.provider.connection.removeAccountChangeListener(ws);
+    }
+    ws = undefined;
+  });
+
+  return result;
+}

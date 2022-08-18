@@ -1,7 +1,7 @@
 # Anchor Client Gen
 
 ```bash
-$ git checkout tags/7 -b main
+$ git checkout tags/7
 ```
 
 Check out the npm package

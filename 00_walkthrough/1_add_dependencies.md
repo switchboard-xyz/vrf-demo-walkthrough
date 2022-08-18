@@ -1,7 +1,7 @@
 # Add Dependencies
 
 ```bash
-$ git checkout tags/1 -b main
+$ git checkout tags/1
 ```
 
 In `programs/vrf-client/Cargo.toml` add the following lines
@@ -32,4 +32,3 @@ yarn add -D \
 ```
 
 ## Next: [#2 Initial Program Scaffolding](./2_initial_program_scaffolding.md)
-

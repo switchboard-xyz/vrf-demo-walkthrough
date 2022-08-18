@@ -1,7 +1,7 @@
 # Setup Switchboard Environment
 
 ```bash
-$ git checkout tags/3 -b main
+$ git checkout tags/3
 ```
 
 We'll be using localnet throughout so we need a way to interact with the
@@ -100,4 +100,3 @@ describe("vrf-client", () => {
 ```
 
 ## Next: [#4 Add init_client Instruction](./4_add_init_client_instruction.md)
-

@@ -1,7 +1,7 @@
 # Add Request Randomness Instruction
 
 ```bash
-$ git checkout tags/5 -b main
+$ git checkout tags/5
 ```
 
 We will now request randomness for our VRF Account that is controlled by our

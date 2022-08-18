@@ -1,7 +1,7 @@
 # Add init_client Instruction
 
 ```bash
-$ git checkout tags/4 -b main
+$ git checkout tags/4
 ```
 
 In `programs/vrf-client/src/lib.rs`, add the seed we'll use to derive our client
@@ -217,4 +217,3 @@ sbv2 anchor test --keypair ~/.config/solana/id.json
 _Optionally, add `-s` to suppress the Switchboard oracle logs_
 
 ## Next: [#5 Add request_randomness Instruction](/00_walkthrough/5_add_request_randomness_instruction.md)
-

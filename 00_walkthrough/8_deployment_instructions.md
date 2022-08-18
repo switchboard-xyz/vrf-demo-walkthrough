@@ -1,7 +1,7 @@
 # Deployment Instructions
 
 ```bash
-$ git checkout tags/8 -b main
+$ git checkout tags/8
 ```
 
 ## Deploying to Devnet

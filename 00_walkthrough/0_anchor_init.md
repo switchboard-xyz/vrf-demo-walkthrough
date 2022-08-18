@@ -1,7 +1,7 @@
 # Anchor Init
 
 ```bash
-$ git checkout tags/0 -b main
+$ git checkout tags/0
 ```
 
 Let's create a new anchor project and setup the directory

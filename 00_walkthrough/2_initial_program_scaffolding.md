@@ -1,7 +1,7 @@
 # Initial Program Scaffolding
 
 ```bash
-$ git checkout tags/2 -b main
+$ git checkout tags/2
 ```
 
 This program will be fairly simple and contain only 3 instructions:

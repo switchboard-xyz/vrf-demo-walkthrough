@@ -1,7 +1,7 @@
 # Add Consume Randomness Instruction
 
 ```bash
-$ git checkout tags/6 -b main
+$ git checkout tags/6
 ```
 
 Right now our program can request randomness but we never configured the

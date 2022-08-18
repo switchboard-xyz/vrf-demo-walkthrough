@@ -9,7 +9,56 @@ url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"
-wallet = "/Users/gally/.config/solana/id.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+
+[test]
+startup_wait = 10000
+
+[test.validator]
+url = "https://devnet.genesysgo.net/"
+
+[[test.validator.clone]] # programID
+address = "2TfB33aLaneQb5TNVwyDz3jSZXS6jdW2ARw1Dgf84XCG"
+
+[[test.validator.clone]] # idlAddress
+address = "CKwZcshn4XDvhaWVH9EXnk3iu19t6t5xP2Sy2pD6TRDp"
+
+[[test.validator.clone]] # programState
+address = "BYM81n8HvTJuqZU1PmTVcwZ9G8uoji7FKM6EaPkwphPt"
+
+[[test.validator.clone]] # switchboardVault
+address = "FVLfR6C2ckZhbSwBzZY4CX7YBcddUSge5BNeGQv5eKhy"
+
+[[test.validator.clone]] # tokenWallet
+address = "98noixB6NnabjgFKw9wgXtqVd9Xg6rmj5kEVMeCHUB5e"
+
+[[test.validator.clone]] # queue
+address = "F9aV4MjaifGSpR8x84rLjHiAQQT13oohxZmv9XeoazXr"
+
+[[test.validator.clone]] # queueAuthority
+address = "AXrbiv8bmcJfscyYWjR8BMFvTUjmx7FSENCjtEx4NxFh"
+
+[[test.validator.clone]] # queueBuffer
+address = "7jJiche9SvWSkQgiJJdGmMmrdqnY5iASw9JkZuLEko1a"
+
+[[test.validator.clone]] # crank
+address = "6s9SaiymnF8yAqsdqFHHEserrZ6SWcS3kzjtLK7jibKh"
+
+[[test.validator.clone]] # crankBuffer
+address = "CxVuJ4zMLwak8m7B3jHsYjiN6Sd3z9rHdUFeryEzzu6C"
+
+[[test.validator.clone]] # oracle
+address = "4gwcUf5cJL8bro8NoYfbBdoQP3P6BRQJXtqeJACtYCJQ"
+
+[[test.validator.clone]] # oracleAuthority
+address = "AXrbiv8bmcJfscyYWjR8BMFvTUjmx7FSENCjtEx4NxFh"
+
+[[test.validator.clone]] # oracleEscrow
+address = "G1mQkKckxnVP4aNC93ejGS6HAhxYQkqczn7hY8Pw6rg7"
+
+[[test.validator.clone]] # oraclePermissions
+address = "2rN3XFR6sSFdFtQqm45XBL4LSAb6sZeDcY3T3UBAYEu7"

@@ -233,7 +233,7 @@ Now let's add some logic to await the randomness result from the oracle.
 And finally run the test!
 
 ```bash
-$ sbv2 anchor test --keypair ~/.config/solana/id.json
+$ sbv2 solana anchor test --keypair ~/.config/solana/id.json
   vrf-client
 oracleQueue: F9aV4MjaifGSpR8x84rLjHiAQQT13oohxZmv9XeoazXr
 unpermissionedVrfEnabled: true

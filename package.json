@@ -12,7 +12,6 @@
         "bn.js": "^5.2.1"
     },
     "devDependencies": {
-        "@switchboard-xyz/switchboardv2-cli": "^0.2.25",
         "@types/bn.js": "^5.1.0",
         "@types/chai": "^4.3.0",
         "@types/mocha": "^9.0.0",

@@ -26,7 +26,7 @@ yarn add \
         @project-serum/borsh \
         bn.js
 yarn add -D \
-        @switchboard-xyz/switchboardv2-cli \
+        @switchboard-xyz/cli@^2 \
         anchor-client-gen \
         @types/bn.js
 ```

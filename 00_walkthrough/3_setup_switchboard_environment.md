@@ -10,7 +10,7 @@ queue on devnet, which will then be copied to our localnet cluster along with a
 copy of the compiled switchboard program before running any tests.
 
 ```bash
-$ sbv2 localnet env --keypair ~/.config/solana/id.json --outputDir .switchboard
+$ sbv2 solana localnet env --keypair ~/.config/solana/id.json --outputDir .switchboard
 OracleQueue     F9aV4MjaifGSpR8x84rLjHiAQQT13oohxZmv9XeoazXr
 OracleBuffer    7jJiche9SvWSkQgiJJdGmMmrdqnY5iASw9JkZuLEko1a
 CrankAccount    6s9SaiymnF8yAqsdqFHHEserrZ6SWcS3kzjtLK7jibKh
@@ -24,7 +24,7 @@ Docker-Compose saved to: ./.switchboard/docker-compose.switchboard.yml
 Anchor.toml saved to: ./.switchboard/Anchor.switchboard.toml
 
 You may also copy the accounts from Anchor.switchboard.toml into your projects Anchor.toml and run the following command to create an oracle and run 'anchor test' with a local validator running:
-        sbv2 anchor test \
+        sbv2 solana anchor test \
   --keypair /Users/gally/.config/solana/id.json \
   --oracleKey 4gwcUf5cJL8bro8NoYfbBdoQP3P6BRQJXtqeJACtYCJQ \
   --switchboardDir /Users/gally/dev/switchboard/vrf-client-demo/.switchboard
@@ -34,11 +34,11 @@ Then copy the contents of `.switchboard/Anchor.switchboard.toml` into
 `Anchor.toml`. This will copy the Switchboard environment to localnet when we
 start a test.
 
-Now instead of running anchor test, we'll run the `sbv2 anchor test` command
-which will start a localnet Switchboard oracle before running anchor test
-internally. **NOTE:** This command requires docker and anchor to be installed.
-If on a mac with an ARM chip, pass the `--arm` flag to run a container for arm64
-architecture.
+Now instead of running anchor test, we'll run the `sbv2 solana anchor test`
+command which will start a localnet Switchboard oracle before running anchor
+test internally. **NOTE:** This command requires docker and anchor to be
+installed. If on a mac with an ARM chip, pass the `--arm` flag to run a
+container for arm64 architecture.
 
 Then ignore this directory from git
 

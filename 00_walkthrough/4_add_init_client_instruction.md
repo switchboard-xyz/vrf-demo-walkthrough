@@ -211,7 +211,7 @@ it("init_client", async () => {
 Now run the test
 
 ```bash
-sbv2 anchor test --keypair ~/.config/solana/id.json
+sbv2 solana anchor test --keypair ~/.config/solana/id.json
 ```
 
 _Optionally, add `-s` to suppress the Switchboard oracle logs_

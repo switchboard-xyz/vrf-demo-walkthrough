@@ -261,7 +261,7 @@ it("request_randomness", async () => {
 Then run the test
 
 ```bash
-sbv2 anchor test --keypair ~/.config/solana/id.json
+sbv2 solana anchor test --keypair ~/.config/solana/id.json
 ```
 
 ## Next: [#6 Add consume_randomness Instruction](/00_walkthrough/6_add_consume_randomness_instruction.md)

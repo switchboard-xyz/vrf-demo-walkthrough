@@ -9,7 +9,7 @@ callback into our program so we have no way to know when the randomness value
 was produced. So we will need to add a new instruction that the Switchboard
 oracle will call in order to update our client's state.
 
-In `programs/vrf-client/src/lib.rs`, add the mapping for our request_randomness
+In `programs/vrf-client/src/lib.rs`, add the mapping for our consume_randomness
 action.
 
 ```diff

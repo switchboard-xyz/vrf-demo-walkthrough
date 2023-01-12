@@ -130,15 +130,20 @@ describe("vrf-client", () => {
                 tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
               })
               .rpc();
+            console.log(
+              `request_randomness transaction signature: ${request_signature}`
+            );
             return request_signature;
           },
         },
         45_000
       );
 
-    console.log(
-      `request_randomness transaction signature: ${request_signature}`
+    const callbackTxn = await vrfAccount.getCallbackTransactions(
+      newVrfState.currentRound.requestSlot,
+      20
     );
+    callbackTxn.map((tx) => console.log(tx.meta.logMessages.join("\n") + "\n"));
 
     const vrfClientState = await program.account.vrfClientState.fetch(
       vrfClientKey
@@ -151,11 +156,5 @@ describe("vrf-client", () => {
         sbv2.types.VrfStatus.StatusCallbackSuccess.kind,
       `VRF status mismatch, expected 'StatusCallbackSuccess', received ${newVrfState.status.kind}`
     );
-
-    const callbackTxn = await vrfAccount.getCallbackTransactions(
-      newVrfState.currentRound.requestSlot,
-      20
-    );
-    callbackTxn.map((tx) => console.log(tx.meta.logMessages.join("\n") + "\n"));
   });
 });

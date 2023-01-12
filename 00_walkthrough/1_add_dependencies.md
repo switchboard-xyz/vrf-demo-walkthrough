@@ -4,6 +4,12 @@
 $ git checkout tags/1
 ```
 
+We'll be using the switchboard CLI. Install it if you haven't already
+
+```bash
+npm i -g @switchboard-xyz/cli@^2
+```
+
 In `programs/vrf-client/Cargo.toml` add the following lines
 
 ```toml

@@ -34,6 +34,10 @@ Then copy the contents of `.switchboard/Anchor.switchboard.toml` into
 `Anchor.toml`. This will copy the Switchboard environment to localnet when we
 start a test.
 
+```bash
+echo "" >> Anchor.toml; cat .switchboard/Anchor.switchboard.toml >> Anchor.toml;
+```
+
 Now instead of running anchor test, we'll run the `sbv2 solana anchor test`
 command which will start a localnet Switchboard oracle before running anchor
 test internally. **NOTE:** This command requires docker and anchor to be
@@ -43,7 +47,8 @@ container for arm64 architecture.
 Then ignore this directory from git
 
 ```bash
-echo ".switchboard" >> .gitignore
+printf "\n.switchboard" >> .gitignore
+printf "\n**/*.log" >> .gitignore
 ```
 
 Now let's update our test and print out our oracle queue to the console.
@@ -55,11 +60,9 @@ for any active oracles and throw an error.
 
 ```typescript
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
+import * as sbv2 from "@switchboard-xyz/solana.js";
+import { assert } from "chai";
 import { VrfClient } from "../target/types/vrf_client";
-import { SwitchboardTestContext } from "@switchboard-xyz/sbv2-utils";
-import * as sbv2 from "@switchboard-xyz/switchboard-v2";
-import { PublicKey } from "@solana/web3.js";
 
 describe("vrf-client", () => {
   // Configure the client to use the local cluster.
@@ -69,27 +72,35 @@ describe("vrf-client", () => {
   const provider = program.provider as anchor.AnchorProvider;
   const payer = (provider.wallet as sbv2.AnchorWallet).payer;
 
-  let switchboard: SwitchboardTestContext;
+  let switchboard: sbv2.SwitchboardTestContext;
+  let payerTokenAddress: anchor.web3.PublicKey;
 
-  let vrfClientKey: PublicKey;
+  const vrfKeypair = anchor.web3.Keypair.generate();
+
+  let vrfClientKey: anchor.web3.PublicKey;
   let vrfClientBump: number;
+  [vrfClientKey, vrfClientBump] = anchor.utils.publicKey.findProgramAddressSync(
+    [Buffer.from("CLIENTSEED"), vrfKeypair.publicKey.toBytes()],
+    program.programId
+  );
 
   before(async () => {
-    switchboard = await SwitchboardTestContext.loadFromEnv(
-      program.provider as anchor.AnchorProvider,
-      undefined,
-      5_000_000 // .005 wSOL
+    switchboard = await sbv2.SwitchboardTestContext.loadFromEnv(
+      program.provider as anchor.AnchorProvider
     );
     const queueData = await switchboard.queue.loadData();
+    const queueOracles = await switchboard.queue.loadOracles();
+    [payerTokenAddress] = await switchboard.program.mint.getOrCreateWrappedUser(
+      switchboard.program.walletPubkey,
+      { fundUpTo: 0.75 }
+    );
+    assert(queueOracles.length > 0, `No oracles actively heartbeating`);
     console.log(`oracleQueue: ${switchboard.queue.publicKey}`);
     console.log(
       `unpermissionedVrfEnabled: ${queueData.unpermissionedVrfEnabled}`
     );
-    console.log(`# of oracles heartbeating: ${queueData.queue.length}`);
-    console.log(
-      "\x1b[32m%s\x1b[0m",
-      `\u2714 Switchboard localnet environment loaded successfully\n`
-    );
+    console.log(`# of oracles heartbeating: ${queueOracles.length}`);
+    logSuccess("Switchboard localnet environment loaded successfully");
   });
 
   it("init_client", async () => {

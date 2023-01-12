@@ -20,7 +20,7 @@ grab your program ID and update `Anchor.toml` and
 ```bash
 $ anchor build
 $ solana-keygen pubkey target/deploy/vrf_client-keypair.json
-D79gSNtjonBFmDfc4zznoYaJHPwGTb35zHQ1EPUPsxxp
+EmPZGD34KDCtdwtqJU5VGoqidDQLyW1eyBXvj4yb2W9i
 ```
 
 ## Next: [#1 Add Dependencies](./1_add_dependencies.md)

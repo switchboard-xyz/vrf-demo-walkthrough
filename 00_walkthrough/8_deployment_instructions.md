@@ -26,7 +26,7 @@ const vrfAccount = await VrfAccount.create(switchboard.program, {
     keypair: vrfKeypair,
     authority: vrfClientKey,
 -    queue: switchboard.queue,
-+    queue: new OracleQueueAccount({ program: switchboard.program, publicKey: new PublicKey("F8ce7MsckeZAbAGmxjJNetxYXQa9mKr9nnrC3qKubyYy") }),
++    queue: new QueueAccount(switchboard.program, publicKey: new PublicKey("F8ce7MsckeZAbAGmxjJNetxYXQa9mKr9nnrC3qKubyYy")),
     callback: {
     programId: program.programId,
     accounts: [
@@ -74,8 +74,8 @@ the mainnet program ID. Make the following update in
 anchor-lang = "0.25.0"
 anchor-spl = "^0.25.0"
 solana-program = "~1.10.29"
-- switchboard-v2 = { version = "^0.1.14", features = ["devnet"] }
-+ switchboard-v2 = { version = "^0.1.14" }
+- switchboard-v2 = { version = "^0.1.20", features = ["devnet"] }
++ switchboard-v2 = { version = "^0.1.20" }
 bytemuck = "1.7.2"
 ```
 

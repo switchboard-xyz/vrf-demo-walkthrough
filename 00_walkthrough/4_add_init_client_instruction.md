@@ -116,82 +116,34 @@ impl InitClient<'_>  {
 }
 ```
 
-Update the init_client test. In the before hook, lets await our oracle before
-starting any tests.
-
-```diff
-  before(async () => {
-    switchboard = await SwitchboardTestContext.loadFromEnv(
-      program.provider as anchor.AnchorProvider,
-      undefined,
-      5_000_000 // .005 wSOL
-    );
-+     await switchboard.oracleHeartbeat();
-    const queueData = await switchboard.queue.loadData();
-    console.log(`oracleQueue: ${switchboard.queue.publicKey}`);
-    console.log(
-      `unpermissionedVrfEnabled: ${queueData.unpermissionedVrfEnabled}`
-    );
-    console.log(`# of oracles heartbeating: ${queueData.queue.length}`);
-    console.log(
-      "\x1b[32m%s\x1b[0m",
-      `\u2714 Switchboard localnet environment loaded successfully\n`
-    );
-  });
-```
-
 Then update the init_client test.
 
 ```typescript
 it("init_client", async () => {
-  const { unpermissionedVrfEnabled, authority, dataBuffer } =
-    await switchboard.queue.loadData();
-
-  const vrfKeypair = anchor.web3.Keypair.generate();
-
-  // find PDA used for our client state pubkey
-  [vrfClientKey, vrfClientBump] = anchor.utils.publicKey.findProgramAddressSync(
-    [Buffer.from("CLIENTSEED"), vrfKeypair.publicKey.toBytes()],
-    program.programId
-  );
-
-  const vrfAccount = await sbv2.VrfAccount.create(switchboard.program, {
-    keypair: vrfKeypair,
+  const [vrfAccount] = await switchboard.queue.createVrf({
+    vrfKeypair,
     authority: vrfClientKey,
-    queue: switchboard.queue,
-    // Useless, will update when consume_randomness instruction is created
     callback: {
       programId: program.programId,
       accounts: [],
       ixData: Buffer.from(""),
     },
+    enable: true,
   });
-  console.log(`Created VRF Account: ${vrfAccount.publicKey}`);
-  const permissionAccount = await sbv2.PermissionAccount.create(
-    switchboard.program,
-    {
-      authority,
-      granter: switchboard.queue.publicKey,
-      grantee: vrfAccount.publicKey,
-    }
+  const vrf = await vrfAccount.loadData();
+  logSuccess(`Created VRF Account: ${vrfAccount.publicKey.toBase58()}`);
+  console.log(
+    "callback",
+    JSON.stringify(
+      {
+        programId: vrf.callback.programId.toBase58(),
+        accounts: vrf.callback.accounts.slice(0, vrf.callback.accountsLen),
+        ixData: vrf.callback.ixData.slice(0, vrf.callback.ixDataLen),
+      },
+      undefined,
+      2
+    )
   );
-  console.log(`Created Permission Account: ${permissionAccount.publicKey}`);
-
-  // If queue requires permissions to use VRF, check the correct authority was provided
-  if (!unpermissionedVrfEnabled) {
-    if (!payer.publicKey.equals(authority)) {
-      throw new Error(
-        `queue requires PERMIT_VRF_REQUESTS and wrong queue authority provided`
-      );
-    }
-
-    await permissionAccount.set({
-      authority: payer,
-      permission: sbv2.SwitchboardPermission.PERMIT_VRF_REQUESTS,
-      enable: true,
-    });
-    console.log(`Set VRF Permissions`);
-  }
 
   const tx = await program.methods
     .initClient({

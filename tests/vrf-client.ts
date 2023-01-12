@@ -1,63 +1,54 @@
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
+import * as sbv2 from "@switchboard-xyz/solana.js";
+import { assert } from "chai";
 import { VrfClient } from "../target/types/vrf_client";
-import {
-  promiseWithTimeout,
-  SwitchboardTestContext,
-} from "@switchboard-xyz/sbv2-utils";
-import * as sbv2 from "@switchboard-xyz/switchboard-v2";
-import { PublicKey } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID } from "@project-serum/anchor/dist/cjs/utils/token";
+
+const logSuccess = (logMessage: string) =>
+  console.log("\x1b[32m%s\x1b[0m", `\u2714 ${logMessage}\n`);
 
 describe("vrf-client", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace.VrfClient as Program<VrfClient>;
+  const program = anchor.workspace.VrfClient as anchor.Program<VrfClient>;
   const provider = program.provider as anchor.AnchorProvider;
   const payer = (provider.wallet as sbv2.AnchorWallet).payer;
 
-  let switchboard: SwitchboardTestContext;
+  let switchboard: sbv2.SwitchboardTestContext;
+  let payerTokenAddress: anchor.web3.PublicKey;
 
-  let vrfClientKey: PublicKey;
+  const vrfKeypair = anchor.web3.Keypair.generate();
+
+  let vrfClientKey: anchor.web3.PublicKey;
   let vrfClientBump: number;
+  [vrfClientKey, vrfClientBump] = anchor.utils.publicKey.findProgramAddressSync(
+    [Buffer.from("CLIENTSEED"), vrfKeypair.publicKey.toBytes()],
+    program.programId
+  );
 
   before(async () => {
-    switchboard = await SwitchboardTestContext.loadFromEnv(
-      program.provider as anchor.AnchorProvider,
-      undefined,
-      5_000_000 // .005 wSOL
+    switchboard = await sbv2.SwitchboardTestContext.loadFromEnv(
+      program.provider as anchor.AnchorProvider
     );
-    await switchboard.oracleHeartbeat();
     const queueData = await switchboard.queue.loadData();
+    const queueOracles = await switchboard.queue.loadOracles();
+    [payerTokenAddress] = await switchboard.program.mint.getOrCreateWrappedUser(
+      switchboard.program.walletPubkey,
+      { fundUpTo: 0.75 }
+    );
+    assert(queueOracles.length > 0, `No oracles actively heartbeating`);
     console.log(`oracleQueue: ${switchboard.queue.publicKey}`);
     console.log(
       `unpermissionedVrfEnabled: ${queueData.unpermissionedVrfEnabled}`
     );
-    console.log(`# of oracles heartbeating: ${queueData.queue.length}`);
-    console.log(
-      "\x1b[32m%s\x1b[0m",
-      `\u2714 Switchboard localnet environment loaded successfully\n`
-    );
+    console.log(`# of oracles heartbeating: ${queueOracles.length}`);
+    logSuccess("Switchboard localnet environment loaded successfully");
   });
 
   it("init_client", async () => {
-    const { unpermissionedVrfEnabled, authority, dataBuffer } =
-      await switchboard.queue.loadData();
-
-    const vrfKeypair = anchor.web3.Keypair.generate();
-
-    // find PDA used for our client state pubkey
-    [vrfClientKey, vrfClientBump] =
-      anchor.utils.publicKey.findProgramAddressSync(
-        [Buffer.from("CLIENTSEED"), vrfKeypair.publicKey.toBytes()],
-        program.programId
-      );
-
-    const vrfAccount = await sbv2.VrfAccount.create(switchboard.program, {
-      keypair: vrfKeypair,
+    const [vrfAccount] = await switchboard.queue.createVrf({
+      vrfKeypair,
       authority: vrfClientKey,
-      queue: switchboard.queue,
       callback: {
         programId: program.programId,
         accounts: [
@@ -69,33 +60,22 @@ describe("vrf-client", () => {
           ""
         ),
       },
+      enable: true,
     });
-    console.log(`Created VRF Account: ${vrfAccount.publicKey}`);
-    const permissionAccount = await sbv2.PermissionAccount.create(
-      switchboard.program,
-      {
-        authority,
-        granter: switchboard.queue.publicKey,
-        grantee: vrfAccount.publicKey,
-      }
+    const vrf = await vrfAccount.loadData();
+    logSuccess(`Created VRF Account: ${vrfAccount.publicKey.toBase58()}`);
+    console.log(
+      "callback",
+      JSON.stringify(
+        {
+          programId: vrf.callback.programId.toBase58(),
+          accounts: vrf.callback.accounts.slice(0, vrf.callback.accountsLen),
+          ixData: vrf.callback.ixData.slice(0, vrf.callback.ixDataLen),
+        },
+        undefined,
+        2
+      )
     );
-    console.log(`Created Permission Account: ${permissionAccount.publicKey}`);
-
-    // If queue requires permissions to use VRF, check the correct authority was provided
-    if (!unpermissionedVrfEnabled) {
-      if (!payer.publicKey.equals(authority)) {
-        throw new Error(
-          `queue requires PERMIT_VRF_REQUESTS and wrong queue authority provided`
-        );
-      }
-
-      await permissionAccount.set({
-        authority: payer,
-        permission: sbv2.SwitchboardPermission.PERMIT_VRF_REQUESTS,
-        enable: true,
-      });
-      console.log(`Set VRF Permissions`);
-    }
 
     const tx = await program.methods
       .initClient({
@@ -113,98 +93,69 @@ describe("vrf-client", () => {
 
   it("request_randomness", async () => {
     const state = await program.account.vrfClientState.fetch(vrfClientKey);
-    const vrfAccount = new sbv2.VrfAccount({
-      program: switchboard.program,
-      publicKey: state.vrf,
-    });
+    const vrfAccount = new sbv2.VrfAccount(switchboard.program, state.vrf);
     const vrfState = await vrfAccount.loadData();
-    const queueAccount = new sbv2.OracleQueueAccount({
-      program: switchboard.program,
-      publicKey: vrfState.oracleQueue,
-    });
-    const queueState = await queueAccount.loadData();
+    const queueState = await switchboard.queue.loadData();
+
     const [permissionAccount, permissionBump] = sbv2.PermissionAccount.fromSeed(
       switchboard.program,
       queueState.authority,
-      queueAccount.publicKey,
+      switchboard.queue.publicKey,
       vrfAccount.publicKey
     );
-    const [programStateAccount, switchboardStateBump] =
-      sbv2.ProgramStateAccount.fromSeed(switchboard.program);
 
-    const request_signature = await program.methods
-      .requestRandomness({
-        switchboardStateBump,
-        permissionBump,
-      })
-      .accounts({
-        state: vrfClientKey,
-        vrf: vrfAccount.publicKey,
-        oracleQueue: queueAccount.publicKey,
-        queueAuthority: queueState.authority,
-        dataBuffer: queueState.dataBuffer,
-        permission: permissionAccount.publicKey,
-        escrow: vrfState.escrow,
-        programState: programStateAccount.publicKey,
-        switchboardProgram: switchboard.program.programId,
-        payerWallet: switchboard.payerTokenWallet,
-        payerAuthority: payer.publicKey,
-        recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .rpc();
+    const [newVrfState, request_signature] =
+      await vrfAccount.requestAndAwaitResult(
+        {
+          vrf: vrfState,
+          requestFunction: async () => {
+            const request_signature = await program.methods
+              .requestRandomness({
+                switchboardStateBump: switchboard.program.programState.bump,
+                permissionBump,
+              })
+              .accounts({
+                state: vrfClientKey,
+                vrf: vrfAccount.publicKey,
+                oracleQueue: switchboard.queue.publicKey,
+                queueAuthority: queueState.authority,
+                dataBuffer: queueState.dataBuffer,
+                permission: permissionAccount.publicKey,
+                escrow: vrfState.escrow,
+                programState: switchboard.program.programState.publicKey,
+                switchboardProgram: switchboard.program.programId,
+                payerWallet: payerTokenAddress,
+                payerAuthority: payer.publicKey,
+                recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
+                tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+              })
+              .rpc();
+            return request_signature;
+          },
+        },
+        45_000
+      );
 
     console.log(
       `request_randomness transaction signature: ${request_signature}`
     );
 
-    const result = await awaitCallback(program, vrfClientKey, 20_000);
+    const vrfClientState = await program.account.vrfClientState.fetch(
+      vrfClientKey
+    );
 
-    console.log(`VrfClient Result: ${result}`);
+    console.log(`VrfClient Result: ${vrfClientState.result.toString(10)}`);
 
-    return;
+    assert(
+      newVrfState.status.kind ===
+        sbv2.types.VrfStatus.StatusCallbackSuccess.kind,
+      `VRF status mismatch, expected 'StatusCallbackSuccess', received ${newVrfState.status.kind}`
+    );
+
+    const callbackTxn = await vrfAccount.getCallbackTransactions(
+      newVrfState.currentRound.requestSlot,
+      20
+    );
+    callbackTxn.map((tx) => console.log(tx.meta.logMessages.join("\n") + "\n"));
   });
 });
-
-async function awaitCallback(
-  program: Program<VrfClient>,
-  vrfClientKey: anchor.web3.PublicKey,
-  timeoutInterval: number,
-  errorMsg = "Timed out waiting for VRF Client callback"
-) {
-  let ws: number | undefined = undefined;
-  const result: anchor.BN = await promiseWithTimeout(
-    timeoutInterval,
-    new Promise((resolve: (result: anchor.BN) => void) => {
-      ws = program.provider.connection.onAccountChange(
-        vrfClientKey,
-        async (
-          accountInfo: anchor.web3.AccountInfo<Buffer>,
-          context: anchor.web3.Context
-        ) => {
-          const clientState =
-            program.account.vrfClientState.coder.accounts.decode(
-              "VrfClientState",
-              accountInfo.data
-            );
-          if (clientState.result.gt(new anchor.BN(0))) {
-            resolve(clientState.result);
-          }
-        }
-      );
-    }).finally(async () => {
-      if (ws) {
-        await program.provider.connection.removeAccountChangeListener(ws);
-      }
-      ws = undefined;
-    }),
-    new Error(errorMsg)
-  ).finally(async () => {
-    if (ws) {
-      await program.provider.connection.removeAccountChangeListener(ws);
-    }
-    ws = undefined;
-  });
-
-  return result;
-}

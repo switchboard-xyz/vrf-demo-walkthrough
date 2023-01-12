@@ -90,19 +90,18 @@ pub mod vrf_client {
 }
 ```
 
-And finally we'll fix up and run the test. Update `tests/vrf-client.ts
+And finally we'll fix up and run the test. Update `tests/vrf-client.ts`
 
 ```typescript
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
+import * as sbv2 from "@switchboard-xyz/solana.js";
+import { assert } from "chai";
 import { VrfClient } from "../target/types/vrf_client";
-import * as sbv2 from "@switchboard-xyz/switchboard-v2";
-
 describe("vrf-client", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace.VrfClient as Program<VrfClient>;
+  const program = anchor.workspace.VrfClient as anchor.Program<VrfClient>;
   const provider = program.provider as anchor.AnchorProvider;
   const payer = (provider.wallet as sbv2.AnchorWallet).payer;
 

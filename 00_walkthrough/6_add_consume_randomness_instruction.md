@@ -145,89 +145,102 @@ to all instructions (and accounts) which is a hash of the instruction name. This
 helps map the instruction to your programs interface.
 
 ```diff
-const vrfAccount = await VrfAccount.create(switchboard.program, {
-  keypair: vrfKeypair,
-  authority: vrfClientKey,
-  queue: switchboard.queue,
--  // Useless, will update when consume_randomness instruction is created
-  callback: {
-    programId: program.programId,
--    accounts: [],
-+    accounts: [
-+      { pubkey: vrfClientKey, isSigner: false, isWritable: true },
-+      { pubkey: vrfKeypair.publicKey, isSigner: false, isWritable: false },
-+    ],
--    ixData: Buffer.from(""),
-+    ixData: new anchor.BorshInstructionCoder(program.idl).encode(
-+      "consumeRandomness",
-+      ""
-+    ),
-  },
+const [vrfAccount] = await switchboard.queue.createVrf({
+    vrfKeypair,
+    callback: {
+        programId: program.programId,
+-       accounts: [],
++       accounts: [
++           { pubkey: vrfClientKey, isSigner: false, isWritable: true },
++           { pubkey: vrfKeypair.publicKey, isSigner: false, isWritable: false },
++       ],
+-       ixData: Buffer.from(""),
++       ixData: new anchor.BorshInstructionCoder(program.idl).encode(
++           "consumeRandomness",
++           ""
++       ),
+    },
+    enable: true,
 });
 ```
 
-Now let's add some logic to await the randomness result from the oracle.
+Now let's add some logic to await the randomness result from the oracle. This
+function will invoke our programs request randomness instruction then open a
+websocket and await the result. If the result is not populated in 45s then it
+will throw an error.
 
 ```diff
+
+- const request_signature = await program.methods
+- .requestRandomness({
+-     switchboardStateBump: switchboard.program.programState.bump,
+-     permissionBump,
+- })
+- .accounts({
+-     state: vrfClientKey,
+-     vrf: vrfAccount.publicKey,
+-     oracleQueue: switchboard.queue.publicKey,
+-     queueAuthority: queueState.authority,
+-     dataBuffer: queueState.dataBuffer,
+-     permission: permissionAccount.publicKey,
+-     escrow: vrfState.escrow,
+-     programState: switchboard.program.programState.publicKey,
+-     switchboardProgram: switchboard.program.programId,
+-     payerWallet: payerTokenAddress,
+-     payerAuthority: payer.publicKey,
+-     recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
+-     tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+- })
+- .rpc();
++     const [newVrfState, request_signature] =
++       await vrfAccount.requestAndAwaitResult(
++         {
++           vrf: vrfState,
++           requestFunction: async () => {
++             const request_signature = await program.methods
++               .requestRandomness({
++                 switchboardStateBump: switchboard.program.programState.bump,
++                 permissionBump,
++               })
++               .accounts({
++                 state: vrfClientKey,
++                 vrf: vrfAccount.publicKey,
++                 oracleQueue: switchboard.queue.publicKey,
++                 queueAuthority: queueState.authority,
++                 dataBuffer: queueState.dataBuffer,
++                 permission: permissionAccount.publicKey,
++                 escrow: vrfState.escrow,
++                 programState: switchboard.program.programState.publicKey,
++                 switchboardProgram: switchboard.program.programId,
++                 payerWallet: payerTokenAddress,
++                 payerAuthority: payer.publicKey,
++                 recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
++                 tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
++               })
++               .rpc();
++             return request_signature;
++           },
++         },
++         45_000
++       );
 
     console.log(
       `request_randomness transaction signature: ${request_signature}`
     );
 
-+    const result = await awaitCallback(program, vrfClientKey, 20_000);
-+
-+    console.log(`VrfClient Result: ${result}`);
++    const vrfClientState = await program.account.vrfClientState.fetch(
++      vrfClientKey
++    );
 
-+    return;
++    console.log(`VrfClient Result: ${vrfClientState.result.toString(10)}`);
++    const callbackTxn = await vrfAccount.getCallbackTransactions(
++      newVrfState.currentRound.requestSlot,
++      20
++    );
++    callbackTxn.map((tx) => console.log(tx.meta.logMessages.join("\n") + "\n"));
   });
 });
 
-+ async function awaitCallback(
-+   program: Program<VrfClient>,
-+   vrfClientKey: anchor.web3.PublicKey,
-+   timeoutInterval: number,
-+   errorMsg = "Timed out waiting for VRF Client callback"
-+ ) {
-+   let ws: number | undefined = undefined;
-+   const result: anchor.BN = await promiseWithTimeout(
-+     timeoutInterval,
-+     new Promise(
-+       (
-+         resolve: (result: anchor.BN) => void
-+       ) => {
-+         ws = program.provider.connection.onAccountChange(
-+           vrfClientKey,
-+           async (
-+             accountInfo: anchor.web3.AccountInfo<Buffer>,
-+             context: anchor.web3.Context
-+           ) => {
-+             const clientState =
-+               program.account.vrfClientState.coder.accounts.decode(
-+                 "VrfClientState",
-+                 accountInfo.data
-+               );
-+             if (clientState.result.gt(new anchor.BN(0))) {
-+               resolve(clientState.result);
-+             }
-+           }
-+         );
-+       }
-+     ).finally(async () => {
-+       if (ws) {
-+         await program.provider.connection.removeAccountChangeListener(ws);
-+       }
-+       ws = undefined;
-+     }),
-+     new Error(errorMsg)
-+   ).finally(async () => {
-+     if (ws) {
-+       await program.provider.connection.removeAccountChangeListener(ws);
-+     }
-+     ws = undefined;
-+   });
-+
-+   return result;
-+ }
 ```
 
 And finally run the test!

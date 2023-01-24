@@ -1,83 +1,99 @@
-import * as anchor from "@project-serum/anchor";
-import * as sbv2 from "@switchboard-xyz/solana.js";
-import { assert } from "chai";
-import { VrfClient } from "../target/types/vrf_client";
+import "mocha";
 
-const logSuccess = (logMessage: string) =>
-  console.log("\x1b[32m%s\x1b[0m", `\u2714 ${logMessage}\n`);
+import * as anchor from "@project-serum/anchor";
+import { AnchorProvider } from "@project-serum/anchor";
+import * as sbv2 from "@switchboard-xyz/solana.js";
+import { VrfClient } from "../target/types/vrf_client";
+import { assert } from "chai";
+import { BN } from "bn.js";
 
 describe("vrf-client", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+  const provider = AnchorProvider.env();
+  anchor.setProvider(provider);
 
-  const program = anchor.workspace.VrfClient as anchor.Program<VrfClient>;
-  const provider = program.provider as anchor.AnchorProvider;
+  const program: anchor.Program<VrfClient> = anchor.workspace.VrfClient;
   const payer = (provider.wallet as sbv2.AnchorWallet).payer;
 
-  let switchboard: sbv2.SwitchboardTestContext;
-  let payerTokenAddress: anchor.web3.PublicKey;
+  const vrfSecret = anchor.web3.Keypair.generate();
+  console.log(`VRF Account: ${vrfSecret.publicKey}`);
 
-  const vrfKeypair = anchor.web3.Keypair.generate();
-
-  let vrfClientKey: anchor.web3.PublicKey;
-  let vrfClientBump: number;
-  [vrfClientKey, vrfClientBump] = anchor.utils.publicKey.findProgramAddressSync(
-    [Buffer.from("CLIENTSEED"), vrfKeypair.publicKey.toBytes()],
+  const [vrfClientKey] = anchor.utils.publicKey.findProgramAddressSync(
+    [Buffer.from("CLIENTSEED"), vrfSecret.publicKey.toBytes()],
     program.programId
   );
+  console.log(`VRF Client: ${vrfClientKey}`);
+
+  const vrfIxCoder = new anchor.BorshInstructionCoder(program.idl);
+  const vrfClientCallback: sbv2.Callback = {
+    programId: program.programId,
+    accounts: [
+      // ensure all accounts in consumeRandomness are populated
+      { pubkey: vrfClientKey, isSigner: false, isWritable: true },
+      { pubkey: vrfSecret.publicKey, isSigner: false, isWritable: false },
+    ],
+    ixData: vrfIxCoder.encode("consumeRandomness", ""), // pass any params for instruction here
+  };
+
+  let switchboard: sbv2.SwitchboardTestContextV2;
+  let vrfAccount: sbv2.VrfAccount;
 
   before(async () => {
-    switchboard = await sbv2.SwitchboardTestContext.loadFromEnv(
-      program.provider as anchor.AnchorProvider
+    switchboard = await sbv2.SwitchboardTestContextV2.loadFromProvider(
+      provider,
+      {
+        // You can provide a keypair to so the PDA schemes dont change between test runs
+        name: "Test Queue",
+        keypair: sbv2.SwitchboardTestContextV2.loadKeypair(
+          "~/.keypairs/queue.json"
+        ),
+        queueSize: 10,
+        reward: 0,
+        minStake: 0,
+        oracleTimeout: 900,
+        unpermissionedFeeds: true,
+        unpermissionedVrf: true,
+        enableBufferRelayers: true,
+        oracle: {
+          name: "Test Oracle",
+          enable: true,
+          stakingWalletKeypair: sbv2.SwitchboardTestContextV2.loadKeypair(
+            "~/.keypairs/oracleWallet.json"
+          ),
+        },
+      }
     );
-    const queueData = await switchboard.queue.loadData();
-    const queueOracles = await switchboard.queue.loadOracles();
-    [payerTokenAddress] = await switchboard.program.mint.getOrCreateWrappedUser(
-      switchboard.program.walletPubkey,
-      { fundUpTo: 0.75 }
+    await switchboard.start(
+      "dev-v2-RC_01_24_23_20_38",
+      {
+        envVariables: {
+          DISABLE_NONCE_QUEUE: "true",
+        },
+      },
+      60
     );
-    assert(queueOracles.length > 0, `No oracles actively heartbeating`);
-    console.log(`oracleQueue: ${switchboard.queue.publicKey}`);
-    console.log(
-      `unpermissionedVrfEnabled: ${queueData.unpermissionedVrfEnabled}`
-    );
-    console.log(`# of oracles heartbeating: ${queueOracles.length}`);
-    logSuccess("Switchboard localnet environment loaded successfully");
+  });
+
+  after(async () => {
+    if (switchboard) {
+      switchboard.stop();
+    }
   });
 
   it("init_client", async () => {
-    const [vrfAccount] = await switchboard.queue.createVrf({
-      vrfKeypair,
-      authority: vrfClientKey,
-      callback: {
-        programId: program.programId,
-        accounts: [
-          { pubkey: vrfClientKey, isSigner: false, isWritable: true },
-          { pubkey: vrfKeypair.publicKey, isSigner: false, isWritable: false },
-        ],
-        ixData: new anchor.BorshInstructionCoder(program.idl).encode(
-          "consumeRandomness",
-          ""
-        ),
-      },
-      enable: true,
-    });
-    const vrf = await vrfAccount.loadData();
-    logSuccess(`Created VRF Account: ${vrfAccount.publicKey.toBase58()}`);
-    console.log(
-      "callback",
-      JSON.stringify(
-        {
-          programId: vrf.callback.programId.toBase58(),
-          accounts: vrf.callback.accounts.slice(0, vrf.callback.accountsLen),
-          ixData: vrf.callback.ixData.slice(0, vrf.callback.ixDataLen),
-        },
-        undefined,
-        2
-      )
-    );
+    const queue = await switchboard.queue.loadData();
 
-    const tx = await program.methods
+    // Create Switchboard VRF and Permission account
+    [vrfAccount] = await switchboard.queue.createVrf({
+      callback: vrfClientCallback,
+      authority: vrfClientKey, // vrf authority
+      vrfKeypair: vrfSecret,
+      enable: !queue.unpermissionedVrfEnabled, // only set permissions if required
+    });
+
+    console.log(`Created VRF Account: ${vrfAccount.publicKey}`);
+
+    // Create VRF Client account
+    await program.methods
       .initClient({
         maxResult: new anchor.BN(1337),
       })
@@ -88,73 +104,72 @@ describe("vrf-client", () => {
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
-    console.log("init_client transaction signature", tx);
+    console.log(`Created VrfClient Account: ${vrfClientKey}`);
   });
 
   it("request_randomness", async () => {
-    const state = await program.account.vrfClientState.fetch(vrfClientKey);
-    const vrfAccount = new sbv2.VrfAccount(switchboard.program, state.vrf);
-    const vrfState = await vrfAccount.loadData();
-    const queueState = await switchboard.queue.loadData();
+    const queue = await switchboard.queue.loadData();
+    const vrf = await vrfAccount.loadData();
 
+    // derive the existing VRF permission account using the seeds
     const [permissionAccount, permissionBump] = sbv2.PermissionAccount.fromSeed(
       switchboard.program,
-      queueState.authority,
+      queue.authority,
       switchboard.queue.publicKey,
       vrfAccount.publicKey
     );
 
-    const [newVrfState, request_signature] =
-      await vrfAccount.requestAndAwaitResult(
-        {
-          vrf: vrfState,
-          requestFunction: async () => {
-            const request_signature = await program.methods
-              .requestRandomness({
-                switchboardStateBump: switchboard.program.programState.bump,
-                permissionBump,
-              })
-              .accounts({
-                state: vrfClientKey,
-                vrf: vrfAccount.publicKey,
-                oracleQueue: switchboard.queue.publicKey,
-                queueAuthority: queueState.authority,
-                dataBuffer: queueState.dataBuffer,
-                permission: permissionAccount.publicKey,
-                escrow: vrfState.escrow,
-                programState: switchboard.program.programState.publicKey,
-                switchboardProgram: switchboard.program.programId,
-                payerWallet: payerTokenAddress,
-                payerAuthority: payer.publicKey,
-                recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
-                tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-              })
-              .rpc();
-            console.log(
-              `request_randomness transaction signature: ${request_signature}`
-            );
-            return request_signature;
-          },
-        },
-        45_000
+    const [payerTokenWallet] =
+      await switchboard.program.mint.getOrCreateWrappedUser(
+        switchboard.program.walletPubkey,
+        { fundUpTo: 0.002 }
       );
 
-    const callbackTxn = await vrfAccount.getCallbackTransactions(
-      newVrfState.currentRound.requestSlot,
-      20
+    // Request randomness
+    await program.methods
+      .requestRandomness({
+        switchboardStateBump: switchboard.program.programState.bump,
+        permissionBump,
+      })
+      .accounts({
+        state: vrfClientKey,
+        vrf: vrfAccount.publicKey,
+        oracleQueue: switchboard.queue.publicKey,
+        queueAuthority: queue.authority,
+        dataBuffer: queue.dataBuffer,
+        permission: permissionAccount.publicKey,
+        escrow: vrf.escrow,
+        programState: switchboard.program.programState.publicKey,
+        switchboardProgram: switchboard.program.programId,
+        payerWallet: payerTokenWallet,
+        payerAuthority: payer.publicKey,
+        recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
+        tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+      })
+      .rpc();
+
+    const result = await vrfAccount.nextResult(
+      new anchor.BN(vrf.counter.toNumber() + 1),
+      45_000
     );
-    callbackTxn.map((tx) => console.log(tx.meta.logMessages.join("\n") + "\n"));
+    if (!result.success) {
+      throw new Error(`Failed to get VRF Result: ${result.status}`);
+    }
 
     const vrfClientState = await program.account.vrfClientState.fetch(
       vrfClientKey
     );
-
     console.log(`VrfClient Result: ${vrfClientState.result.toString(10)}`);
 
-    assert(
-      newVrfState.status.kind ===
-        sbv2.types.VrfStatus.StatusCallbackSuccess.kind,
-      `VRF status mismatch, expected 'StatusCallbackSuccess', received ${newVrfState.status.kind}`
+    const callbackTxnMeta = await vrfAccount.getCallbackTransactions();
+    console.log(
+      JSON.stringify(
+        callbackTxnMeta.map((tx) => tx.meta.logMessages),
+        undefined,
+        2
+      )
     );
+
+    assert(!vrfClientState.result.eq(new BN(0)), "Vrf Client holds no result");
   });
 });

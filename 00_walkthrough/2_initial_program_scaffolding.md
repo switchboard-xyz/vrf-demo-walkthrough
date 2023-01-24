@@ -93,16 +93,21 @@ pub mod vrf_client {
 And finally we'll fix up and run the test. Update `tests/vrf-client.ts`
 
 ```typescript
+import "mocha";
+
 import * as anchor from "@project-serum/anchor";
+import { AnchorProvider } from "@project-serum/anchor";
 import * as sbv2 from "@switchboard-xyz/solana.js";
-import { assert } from "chai";
 import { VrfClient } from "../target/types/vrf_client";
+import { assert } from "chai";
+import { BN } from "bn.js";
+
 describe("vrf-client", () => {
   // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+  const provider = AnchorProvider.env();
+  anchor.setProvider(provider);
 
-  const program = anchor.workspace.VrfClient as anchor.Program<VrfClient>;
-  const provider = program.provider as anchor.AnchorProvider;
+  const program: anchor.Program<VrfClient> = anchor.workspace.VrfClient;
   const payer = (provider.wallet as sbv2.AnchorWallet).payer;
 
   it("init_client", async () => {

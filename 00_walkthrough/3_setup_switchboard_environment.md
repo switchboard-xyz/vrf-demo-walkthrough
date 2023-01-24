@@ -4,103 +4,118 @@
 $ git checkout tags/3
 ```
 
-We'll be using localnet throughout so we need a way to interact with the
-switchboard program. We can use the `sbv2` cli to create our own switchboard
-queue on devnet, which will then be copied to our localnet cluster along with a
-copy of the compiled switchboard program before running any tests.
+In your Anchor.toml, add the following to clone the switchboard program and
+context when using a localnet environment:
 
-```bash
-$ sbv2 solana localnet env --keypair ~/.config/solana/id.json --outputDir .switchboard
-OracleQueue     F9aV4MjaifGSpR8x84rLjHiAQQT13oohxZmv9XeoazXr
-OracleBuffer    7jJiche9SvWSkQgiJJdGmMmrdqnY5iASw9JkZuLEko1a
-CrankAccount    6s9SaiymnF8yAqsdqFHHEserrZ6SWcS3kzjtLK7jibKh
-CrankBuffer     CxVuJ4zMLwak8m7B3jHsYjiN6Sd3z9rHdUFeryEzzu6C
-Oracle-1        4gwcUf5cJL8bro8NoYfbBdoQP3P6BRQJXtqeJACtYCJQ
-Permission-1    2rN3XFR6sSFdFtQqm45XBL4LSAb6sZeDcY3T3UBAYEu7
-Env File saved to: ./.switchboard/switchboard.env
-Bash script saved to: ./.switchboard/start-local-validator.sh
-Bash script saved to: ./.switchboard/start-oracle.sh
-Docker-Compose saved to: ./.switchboard/docker-compose.switchboard.yml
-Anchor.toml saved to: ./.switchboard/Anchor.switchboard.toml
+```toml
+[test]
+startup_wait = 10000
 
-You may also copy the accounts from Anchor.switchboard.toml into your projects Anchor.toml and run the following command to create an oracle and run 'anchor test' with a local validator running:
-        sbv2 solana anchor test \
-  --keypair /Users/gally/.config/solana/id.json \
-  --oracleKey 4gwcUf5cJL8bro8NoYfbBdoQP3P6BRQJXtqeJACtYCJQ \
-  --switchboardDir /Users/gally/dev/switchboard/vrf-client-demo/.switchboard
-```
+[test.validator]
+url = "https://api.devnet.solana.com"
 
-Then copy the contents of `.switchboard/Anchor.switchboard.toml` into
-`Anchor.toml`. This will copy the Switchboard environment to localnet when we
-start a test.
+[[test.validator.clone]] # switchboardProgramId
+address = "2TfB33aLaneQb5TNVwyDz3jSZXS6jdW2ARw1Dgf84XCG"
 
-```bash
-echo "" >> Anchor.toml; cat .switchboard/Anchor.switchboard.toml >> Anchor.toml;
-```
+[[test.validator.clone]] # switchboardIdlAddress
+address = "CKwZcshn4XDvhaWVH9EXnk3iu19t6t5xP2Sy2pD6TRDp"
 
-Now instead of running anchor test, we'll run the `sbv2 solana anchor test`
-command which will start a localnet Switchboard oracle before running anchor
-test internally. **NOTE:** This command requires docker and anchor to be
-installed. If on a mac with an ARM chip, pass the `--arm` flag to run a
-container for arm64 architecture.
+[[test.validator.clone]] # switchboardProgramState
+address = "BYM81n8HvTJuqZU1PmTVcwZ9G8uoji7FKM6EaPkwphPt"
 
-Then ignore this directory from git
+[[test.validator.clone]] # switchboardVault
+address = "FVLfR6C2ckZhbSwBzZY4CX7YBcddUSge5BNeGQv5eKhy"
 
-```bash
-printf "\n.switchboard" >> .gitignore
-printf "\n**/*.log" >> .gitignore
 ```
 
 Now let's update our test and print out our oracle queue to the console.
 
-Open `tests/vrf-client.ts` and add the following before hook. This will check
-your current directory for `switchboard.env` or a `.switchboard` directory with
-a `switchboard.env` file to load your switchboard accounts. It will then check
-for any active oracles and throw an error.
+Open `tests/vrf-client.ts` and add the following before hook. This will:
+
+- Create a new Switchboard queue and oracle
+- Startup a Docker container in the background with your newly created oracle
+- Wait for the Docker container to signal readiness
 
 ```typescript
+import "mocha";
+
 import * as anchor from "@project-serum/anchor";
+import { AnchorProvider } from "@project-serum/anchor";
 import * as sbv2 from "@switchboard-xyz/solana.js";
-import { assert } from "chai";
 import { VrfClient } from "../target/types/vrf_client";
+import { assert } from "chai";
+import { BN } from "bn.js";
 
 describe("vrf-client", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+  const provider = AnchorProvider.env();
+  anchor.setProvider(provider);
 
-  const program = anchor.workspace.VrfClient as Program<VrfClient>;
-  const provider = program.provider as anchor.AnchorProvider;
+  const program: anchor.Program<VrfClient> = anchor.workspace.VrfClient;
   const payer = (provider.wallet as sbv2.AnchorWallet).payer;
 
-  let switchboard: sbv2.SwitchboardTestContext;
-  let payerTokenAddress: anchor.web3.PublicKey;
+  const vrfSecret = anchor.web3.Keypair.generate();
+  console.log(`VRF Account: ${vrfSecret.publicKey}`);
 
-  const vrfKeypair = anchor.web3.Keypair.generate();
-
-  let vrfClientKey: anchor.web3.PublicKey;
-  let vrfClientBump: number;
-  [vrfClientKey, vrfClientBump] = anchor.utils.publicKey.findProgramAddressSync(
-    [Buffer.from("CLIENTSEED"), vrfKeypair.publicKey.toBytes()],
+  const [vrfClientKey] = anchor.utils.publicKey.findProgramAddressSync(
+    [Buffer.from("CLIENTSEED"), vrfSecret.publicKey.toBytes()],
     program.programId
   );
+  console.log(`VRF Client: ${vrfClientKey}`);
+
+  const vrfIxCoder = new anchor.BorshInstructionCoder(program.idl);
+  const vrfClientCallback: sbv2.Callback = {
+    programId: program.programId,
+    accounts: [
+      // ensure all accounts in consumeRandomness are populated
+      { pubkey: vrfClientKey, isSigner: false, isWritable: true },
+      { pubkey: vrfSecret.publicKey, isSigner: false, isWritable: false },
+    ],
+    ixData: vrfIxCoder.encode("consumeRandomness", ""), // pass any params for instruction here
+  };
+
+  let switchboard: sbv2.SwitchboardTestContextV2;
+  let vrfAccount: sbv2.VrfAccount;
 
   before(async () => {
-    switchboard = await sbv2.SwitchboardTestContext.loadFromEnv(
-      program.provider as anchor.AnchorProvider
+    switchboard = await sbv2.SwitchboardTestContextV2.loadFromProvider(
+      provider,
+      {
+        // You can provide a keypair to so the PDA schemes dont change between test runs
+        name: "Test Queue",
+        keypair: sbv2.SwitchboardTestContextV2.loadKeypair(
+          "~/.keypairs/queue.json"
+        ),
+        queueSize: 10,
+        reward: 0,
+        minStake: 0,
+        oracleTimeout: 900,
+        unpermissionedFeeds: true,
+        unpermissionedVrf: true,
+        enableBufferRelayers: true,
+        oracle: {
+          name: "Test Oracle",
+          enable: true,
+          stakingWalletKeypair: sbv2.SwitchboardTestContextV2.loadKeypair(
+            "~/.keypairs/oracleWallet.json"
+          ),
+        },
+      }
     );
-    const queueData = await switchboard.queue.loadData();
-    const queueOracles = await switchboard.queue.loadOracles();
-    [payerTokenAddress] = await switchboard.program.mint.getOrCreateWrappedUser(
-      switchboard.program.walletPubkey,
-      { fundUpTo: 0.75 }
+    await switchboard.start(
+      "dev-v2-RC_01_24_23_20_38",
+      {
+        envVariables: {
+          DISABLE_NONCE_QUEUE: "true",
+        },
+      },
+      60
     );
-    assert(queueOracles.length > 0, `No oracles actively heartbeating`);
-    console.log(`oracleQueue: ${switchboard.queue.publicKey}`);
-    console.log(
-      `unpermissionedVrfEnabled: ${queueData.unpermissionedVrfEnabled}`
-    );
-    console.log(`# of oracles heartbeating: ${queueOracles.length}`);
-    logSuccess("Switchboard localnet environment loaded successfully");
+  });
+
+  after(async () => {
+    if (switchboard) {
+      switchboard.stop();
+    }
   });
 
   it("init_client", async () => {
@@ -108,6 +123,12 @@ describe("vrf-client", () => {
     console.log("init_client transaction signature", tx);
   });
 });
+```
+
+Then run the test
+
+```bash
+anchor test
 ```
 
 ## Next: [#4 Add init_client Instruction](./4_add_init_client_instruction.md)

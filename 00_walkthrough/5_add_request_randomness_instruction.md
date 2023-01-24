@@ -212,19 +212,25 @@ Now let's add some client tests in `tests/vrf-client.ts`
 
 ```typescript
 it("request_randomness", async () => {
-  const state = await program.account.vrfClientState.fetch(vrfClientKey);
-  const vrfAccount = new sbv2.VrfAccount(switchboard.program, state.vrf);
-  const vrfState = await vrfAccount.loadData();
-  const queueState = await switchboard.queue.loadData();
+  const queue = await switchboard.queue.loadData();
+  const vrf = await vrfAccount.loadData();
 
+  // derive the existing VRF permission account using the seeds
   const [permissionAccount, permissionBump] = sbv2.PermissionAccount.fromSeed(
     switchboard.program,
-    queueState.authority,
+    queue.authority,
     switchboard.queue.publicKey,
     vrfAccount.publicKey
   );
 
-  const request_signature = await program.methods
+  const [payerTokenWallet] =
+    await switchboard.program.mint.getOrCreateWrappedUser(
+      switchboard.program.walletPubkey,
+      { fundUpTo: 0.002 }
+    );
+
+  // Request randomness
+  await program.methods
     .requestRandomness({
       switchboardStateBump: switchboard.program.programState.bump,
       permissionBump,
@@ -233,27 +239,25 @@ it("request_randomness", async () => {
       state: vrfClientKey,
       vrf: vrfAccount.publicKey,
       oracleQueue: switchboard.queue.publicKey,
-      queueAuthority: queueState.authority,
-      dataBuffer: queueState.dataBuffer,
+      queueAuthority: queue.authority,
+      dataBuffer: queue.dataBuffer,
       permission: permissionAccount.publicKey,
-      escrow: vrfState.escrow,
+      escrow: vrf.escrow,
       programState: switchboard.program.programState.publicKey,
       switchboardProgram: switchboard.program.programId,
-      payerWallet: payerTokenAddress,
+      payerWallet: payerTokenWallet,
       payerAuthority: payer.publicKey,
       recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
       tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
     })
     .rpc();
-
-  console.log(`request_randomness transaction signature: ${request_signature}`);
 });
 ```
 
 Then run the test
 
 ```bash
-sbv2 solana anchor test --keypair ~/.config/solana/id.json
+anchor test
 ```
 
 ## Next: [#6 Add consume_randomness Instruction](/00_walkthrough/6_add_consume_randomness_instruction.md)

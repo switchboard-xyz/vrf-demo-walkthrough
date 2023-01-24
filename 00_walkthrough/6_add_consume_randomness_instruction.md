@@ -169,102 +169,84 @@ function will invoke our programs request randomness instruction then open a
 websocket and await the result. If the result is not populated in 45s then it
 will throw an error.
 
-```diff
+```typescript
+it("request_randomness", async () => {
+  // ... request randomness
 
-- const request_signature = await program.methods
-- .requestRandomness({
--     switchboardStateBump: switchboard.program.programState.bump,
--     permissionBump,
-- })
-- .accounts({
--     state: vrfClientKey,
--     vrf: vrfAccount.publicKey,
--     oracleQueue: switchboard.queue.publicKey,
--     queueAuthority: queueState.authority,
--     dataBuffer: queueState.dataBuffer,
--     permission: permissionAccount.publicKey,
--     escrow: vrfState.escrow,
--     programState: switchboard.program.programState.publicKey,
--     switchboardProgram: switchboard.program.programId,
--     payerWallet: payerTokenAddress,
--     payerAuthority: payer.publicKey,
--     recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
--     tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-- })
-- .rpc();
-+     const [newVrfState, request_signature] =
-+       await vrfAccount.requestAndAwaitResult(
-+         {
-+           vrf: vrfState,
-+           requestFunction: async () => {
-+             const request_signature = await program.methods
-+               .requestRandomness({
-+                 switchboardStateBump: switchboard.program.programState.bump,
-+                 permissionBump,
-+               })
-+               .accounts({
-+                 state: vrfClientKey,
-+                 vrf: vrfAccount.publicKey,
-+                 oracleQueue: switchboard.queue.publicKey,
-+                 queueAuthority: queueState.authority,
-+                 dataBuffer: queueState.dataBuffer,
-+                 permission: permissionAccount.publicKey,
-+                 escrow: vrfState.escrow,
-+                 programState: switchboard.program.programState.publicKey,
-+                 switchboardProgram: switchboard.program.programId,
-+                 payerWallet: payerTokenAddress,
-+                 payerAuthority: payer.publicKey,
-+                 recentBlockhashes: anchor.web3.SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
-+                 tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-+               })
-+               .rpc();
-+             return request_signature;
-+           },
-+         },
-+         45_000
-+       );
+  const result = await vrfAccount.nextResult(
+    new anchor.BN(vrf.counter.toNumber() + 1),
+    45_000
+  );
+  if (!result.success) {
+    throw new Error(`Failed to get VRF Result: ${result.status}`);
+  }
 
-    console.log(
-      `request_randomness transaction signature: ${request_signature}`
-    );
+  const vrfClientState = await program.account.vrfClientState.fetch(
+    vrfClientKey
+  );
+  console.log(`VrfClient Result: ${vrfClientState.result.toString(10)}`);
 
-+    const vrfClientState = await program.account.vrfClientState.fetch(
-+      vrfClientKey
-+    );
+  const callbackTxnMeta = await vrfAccount.getCallbackTransactions();
+  console.log(
+    JSON.stringify(
+      callbackTxnMeta.map((tx) => tx.meta.logMessages),
+      undefined,
+      2
+    )
+  );
 
-+    console.log(`VrfClient Result: ${vrfClientState.result.toString(10)}`);
-+    const callbackTxn = await vrfAccount.getCallbackTransactions(
-+      newVrfState.currentRound.requestSlot,
-+      20
-+    );
-+    callbackTxn.map((tx) => console.log(tx.meta.logMessages.join("\n") + "\n"));
-  });
+  assert(!vrfClientState.result.eq(new BN(0)), "Vrf Client holds no result");
 });
-
 ```
 
 And finally run the test!
 
 ```bash
-$ sbv2 solana anchor test --keypair ~/.config/solana/id.json
+$ anchor test
+
+VRF Account: BJe3Y8WQUnT4wx9owBSxwRTuXFHk3deJAMFVPzFTWAxd
+VRF Client: 8tNNmjT8QxRabWeQKSqTXtR296h8fg8p8rDvAnYKsssW
+
+
   vrf-client
-oracleQueue: F9aV4MjaifGSpR8x84rLjHiAQQT13oohxZmv9XeoazXr
-unpermissionedVrfEnabled: true
-# of oracles heartbeating: 1
-✔ Switchboard localnet environment loaded successfully
+Starting Switchboard oracle ...
+Created VRF Account: BJe3Y8WQUnT4wx9owBSxwRTuXFHk3deJAMFVPzFTWAxd
+Created VrfClient Account: 8tNNmjT8QxRabWeQKSqTXtR296h8fg8p8rDvAnYKsssW
+    ✔ init_client (868ms)
 
-Created VRF Account: B7X8yHTJsUHC9KheJJ4nP5wSFf8smz7Gm2RcTAPSeyRm
-Created Permission Account: 49GrWEcYms3pT2Nh9r8ety1J14zWQc2iFtHhVifoQ67F
-init_client transaction signature 3A2ABSKRPUz6mDQxxwrVAanKsEdHZY4JUUKRVMpk5TiZSoNBVt5oW1pMe9v4A52PyTtY3aCRYHvTC1S6tm6V6mCu
-    ✔ init_client (1342ms)
-request_randomness transaction signature: 4zBuPsG5MsPP7y5ExSF6VPE9WhrwBy9e3JfoWqwumTsBMkmuCvhr5W3UVyFD4hNSUNGzJP2f4Hk9sDndmGQWHTc7
-VrfClient Result: 230
-    ✔ request_randomness (3290ms)
+VrfClient Result: 423
+[
+  [
+    "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+    "Program ComputeBudget111111111111111111111111111111 success",
+    "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+    "Program ComputeBudget111111111111111111111111111111 success",
+    "Program 2TfB33aLaneQb5TNVwyDz3jSZXS6jdW2ARw1Dgf84XCG invoke [1]",
+    "Program log: Instruction: VrfProveAndVerify",
+    "Program log: Invoking callback",
+    "Program EmPZGD34KDCtdwtqJU5VGoqidDQLyW1eyBXvj4yb2W9i invoke [2]",
+    "Program log: Instruction: ConsumeRandomness",
+    "Program log: Result buffer is [154, 219, 184, 150, 38, 3, 191, 10, 24, 94, 122, 191, 243, 220, 46, 3, 127, 16, 168, 132, 253, 154, 220, 201, 165, 215, 50, 80, 44, 155, 227, 59]",
+    "Program log: u128 buffer [4231011084663214195166609165078027162, 79606250422545424453288202565814063231]",
+    "Program log: Current VRF Value [1 - 1337) = 423!",
+    "Program data: V8IkGhLydDZ1KplU2NCJUISD3i6LBt01IwAMyruAYBhFe04y+lhyiTkFAAAAAAAAmtu4liYDvwoYXnq/89wuA38QqIT9mtzJpdcyUCyb4zunAQAAAAAAAAAAAAAAAAAAsmbQYwAAAAA=",
+    "Program EmPZGD34KDCtdwtqJU5VGoqidDQLyW1eyBXvj4yb2W9i consumed 24439 of 1386272 compute units",
+    "Program EmPZGD34KDCtdwtqJU5VGoqidDQLyW1eyBXvj4yb2W9i success",
+    "Program data: KT1kCMGFQ4WZGaDlpbqimoe3KXzhbQ4vGtkw9W7vNVyMmAaYkEE3BlCuBj8iwJHMZ46bwLeQsva1G43tyWLKwk8Gi9F77RPrAAAAAAAAAAA=",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]",
+    "Program log: Instruction: Transfer",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 4785 of 1358285 compute units",
+    "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+    "Program 2TfB33aLaneQb5TNVwyDz3jSZXS6jdW2ARw1Dgf84XCG consumed 47533 of 1400000 compute units",
+    "Program 2TfB33aLaneQb5TNVwyDz3jSZXS6jdW2ARw1Dgf84XCG success"
+  ]
+]
+    ✔ request_randomness (4340ms)
 
 
-  2 passing (11s)
+  2 passing (27s)
 
-✨  Done in 28.80s.
+✨  Done in 28.30s.
 ```
 
 And just like that you have integrated Switchboard's VRF into your very own

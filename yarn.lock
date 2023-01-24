@@ -203,7 +203,7 @@
     "@solana/buffer-layout-utils" "^0.2.0"
     buffer "^6.0.3"
 
-"@solana/web3.js@^1.32.0", "@solana/web3.js@^1.68.0", "@solana/web3.js@^1.73.0":
+"@solana/web3.js@^1.32.0", "@solana/web3.js@^1.66.2", "@solana/web3.js@^1.68.0", "@solana/web3.js@^1.73.0":
   version "1.73.0"
   resolved "https://registry.npmjs.org/@solana/web3.js/-/web3.js-1.73.0.tgz#c65f9f954ac80fca6952765c931dd72e57e1b572"
   integrity sha512-YrgX3Py7ylh8NYkbanoINUPCj//bWUjYZ5/WPy9nQ9SK3Cl7QWCR+NmbDjmC/fTspZGR+VO9LTQslM++jr5PRw==
@@ -248,28 +248,30 @@
     superstruct "^0.14.2"
     tweetnacl "^1.0.3"
 
-"@switchboard-xyz/common@^2.1.8":
-  version "2.1.8"
-  resolved "https://registry.npmjs.org/@switchboard-xyz/common/-/common-2.1.8.tgz#15772fa195df048aa860317ba40561dd8ce7e181"
-  integrity sha512-mqCDwCtBf3tY2Bvce0USR4m6DsXSqw8rn4luc2sjLL4PPFKCuCZVgzysfkwzwBHoipbnx6odRQ+BIfm35nhWDA==
+"@switchboard-xyz/common@^2.1.28":
+  version "2.1.28"
+  resolved "https://registry.npmjs.org/@switchboard-xyz/common/-/common-2.1.28.tgz#21327d2ed7ecddde1453e82fb8ca5591ff0a11e7"
+  integrity sha512-4cpaWHOWx/D4EHv7W8sYx9E7WvEOuKrImOJNGh+tdlguLKRSKKELWyhOlGpvK8AG9tba6KjHs6HAJdyN0rk/wQ==
   dependencies:
+    "@solana/web3.js" "^1.66.2"
+    "@types/big.js" "^6.1.6"
+    "@types/bn.js" "^5.1.1"
+    "@types/long" "^5.0.0"
     big.js "^6.2.1"
     bn.js "^5.2.1"
     decimal.js "^10.4.3"
     protobufjs "^7.1.2"
 
-"@switchboard-xyz/solana.js@^2.0.86":
-  version "2.0.86"
-  resolved "https://registry.npmjs.org/@switchboard-xyz/solana.js/-/solana.js-2.0.86.tgz#3e356399e9e9e647a94bdec3466b94223da61242"
-  integrity sha512-cWW97cMRxQr1wXWsZLuVQDOIWi4tGN152wbYa/NAG/VRakzVg0c3GBpoq5pIneYSRM4cuHNxi72T4yW06+2RKQ==
+"@switchboard-xyz/solana.js@^2.0.116":
+  version "2.0.116"
+  resolved "https://registry.npmjs.org/@switchboard-xyz/solana.js/-/solana.js-2.0.116.tgz#244898f91066e8a3dbfb07996bbb9fa06e1f687d"
+  integrity sha512-hZ/oN3zL79+Gb2Wt/72Q74Tzu0gMDFL7lh1hZv8yTCpfR/SBRGDM29ZsXANWA0FWkg1bBcWmFkKcQca6FS6E5A==
   dependencies:
     "@project-serum/anchor" "^0.26.0"
     "@project-serum/borsh" "^0.2.5"
     "@solana/spl-token" "^0.3.6"
     "@solana/web3.js" "^1.73.0"
-    "@switchboard-xyz/common" "^2.1.8"
-    big.js "^6.2.1"
-    bn.js "^5.2.1"
+    "@switchboard-xyz/common" "^2.1.28"
     dotenv "^16.0.3"
     lodash "^4.17.21"
 
@@ -283,10 +285,22 @@
     mkdirp "^1.0.4"
     path-browserify "^1.0.1"
 
+"@types/big.js@^6.1.6":
+  version "6.1.6"
+  resolved "https://registry.npmjs.org/@types/big.js/-/big.js-6.1.6.tgz#3d417e758483d55345a03a087f7e0c87137ca444"
+  integrity sha512-0r9J+Zz9rYm2hOTwiMAVkm3XFQ4u5uTK37xrQMhc9bysn/sf/okzovWMYYIBMFTn/yrEZ11pusgLEaoarTlQbA==
+
 "@types/bn.js@^5.1.0":
   version "5.1.0"
   resolved "https://registry.yarnpkg.com/@types/bn.js/-/bn.js-5.1.0.tgz#32c5d271503a12653c62cf4d2b45e6eab8cebc68"
   integrity sha512-QSSVYj7pYFN49kW77o2s9xTCwZ8F2xLbjLLSEVh8D2F4JUhZtPAGOFLTD+ffqksBx/u4cE/KImFjyhqCjn/LIA==
+  dependencies:
+    "@types/node" "*"
+
+"@types/bn.js@^5.1.1":
+  version "5.1.1"
+  resolved "https://registry.npmjs.org/@types/bn.js/-/bn.js-5.1.1.tgz#b51e1b55920a4ca26e9285ff79936bbdec910682"
+  integrity sha512-qNrYbZqMx0uJAfKnKclPh+dTwK33KfLHYqtyODwd5HnXOjnkhc4qgn3BrK6RWyGZm5+sIFE7Q7Vz6QQtJB7w7g==
   dependencies:
     "@types/node" "*"
 
@@ -306,6 +320,13 @@
   version "0.0.29"
   resolved "https://registry.yarnpkg.com/@types/json5/-/json5-0.0.29.tgz#ee28707ae94e11d2b827bcbe5270bcea7f3e71ee"
   integrity sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==
+
+"@types/long@^5.0.0":
+  version "5.0.0"
+  resolved "https://registry.npmjs.org/@types/long/-/long-5.0.0.tgz#daaa7b7f74c919c946ff74889d5ca2afe363b2cd"
+  integrity sha512-eQs9RsucA/LNjnMoJvWG/nXa7Pot/RbBzilF/QRIU/xRl+0ApxrSUFsV5lmf01SvSlqMzJ7Zwxe440wmz2SJGA==
+  dependencies:
+    long "*"
 
 "@types/mocha@^9.0.0":
   version "9.1.1"
@@ -1041,7 +1062,7 @@ log-symbols@4.1.0:
     chalk "^4.1.0"
     is-unicode-supported "^0.1.0"
 
-long@^5.0.0:
+long@*, long@^5.0.0:
   version "5.2.1"
   resolved "https://registry.npmjs.org/long/-/long-5.2.1.tgz#e27595d0083d103d2fa2c20c7699f8e0c92b897f"
   integrity sha512-GKSNGeNAtw8IryjjkhZxuKB3JzlcLTwjtiQCHKvqQet81I93kXslhDQruGI/QsddO83mcDToBVy7GqGS/zYf/A==

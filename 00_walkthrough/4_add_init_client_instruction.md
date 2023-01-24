@@ -120,32 +120,20 @@ Then update the init_client test.
 
 ```typescript
 it("init_client", async () => {
-  const [vrfAccount] = await switchboard.queue.createVrf({
-    vrfKeypair,
-    authority: vrfClientKey,
-    callback: {
-      programId: program.programId,
-      accounts: [],
-      ixData: Buffer.from(""),
-    },
-    enable: true,
-  });
-  const vrf = await vrfAccount.loadData();
-  logSuccess(`Created VRF Account: ${vrfAccount.publicKey.toBase58()}`);
-  console.log(
-    "callback",
-    JSON.stringify(
-      {
-        programId: vrf.callback.programId.toBase58(),
-        accounts: vrf.callback.accounts.slice(0, vrf.callback.accountsLen),
-        ixData: vrf.callback.ixData.slice(0, vrf.callback.ixDataLen),
-      },
-      undefined,
-      2
-    )
-  );
+  const queue = await switchboard.queue.loadData();
 
-  const tx = await program.methods
+  // Create Switchboard VRF and Permission account
+  [vrfAccount] = await switchboard.queue.createVrf({
+    callback: vrfClientCallback,
+    authority: vrfClientKey, // vrf authority
+    vrfKeypair: vrfSecret,
+    enable: !queue.unpermissionedVrfEnabled, // only set permissions if required
+  });
+
+  console.log(`Created VRF Account: ${vrfAccount.publicKey}`);
+
+  // Create VRF Client account
+  await program.methods
     .initClient({
       maxResult: new anchor.BN(1337),
     })
@@ -156,14 +144,14 @@ it("init_client", async () => {
       systemProgram: anchor.web3.SystemProgram.programId,
     })
     .rpc();
-  console.log("init_client transaction signature", tx);
+  console.log(`Created VrfClient Account: ${vrfClientKey}`);
 });
 ```
 
 Now run the test
 
 ```bash
-sbv2 solana anchor test --keypair ~/.config/solana/id.json
+anchor test
 ```
 
 _Optionally, add `-s` to suppress the Switchboard oracle logs_

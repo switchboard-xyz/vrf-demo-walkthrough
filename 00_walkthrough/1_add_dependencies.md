@@ -33,7 +33,8 @@ yarn add \
 yarn add -D \
         @switchboard-xyz/cli@^2 \
         anchor-client-gen \
-        @types/bn.js
+        @types/bn.js \
+        shx
 ```
 
 ## Next: [#2 Initial Program Scaffolding](./2_initial_program_scaffolding.md)

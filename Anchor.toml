@@ -4,9 +4,6 @@ skip-lint = false
 [programs.localnet]
 vrf_client = "EmPZGD34KDCtdwtqJU5VGoqidDQLyW1eyBXvj4yb2W9i"
 
-[registry]
-url = "https://api.apr.dev"
-
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"

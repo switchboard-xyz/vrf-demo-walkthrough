@@ -62,15 +62,7 @@ describe("vrf-client", () => {
         },
       }
     );
-    await switchboard.start(
-      "dev-v2-RC_01_24_23_20_38",
-      {
-        envVariables: {
-          DISABLE_NONCE_QUEUE: "true",
-        },
-      },
-      60
-    );
+    await switchboard.start();
   });
 
   after(async () => {

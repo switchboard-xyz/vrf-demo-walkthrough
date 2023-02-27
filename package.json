@@ -1,13 +1,17 @@
 {
   "scripts": {
+    "build": "npm run pid; npm run sed; anchor build",
+    "sed": "shx --silent sed -i \"s/EmPZGD34KDCtdwtqJU5VGoqidDQLyW1eyBXvj4yb2W9i/$(npm run pid)/g\" Anchor.toml > '/dev/null' 2>&1; shx --silent sed -i \"s/EmPZGD34KDCtdwtqJU5VGoqidDQLyW1eyBXvj4yb2W9i/$(npm run pid)/g\" programs/vrf-client/src/lib.rs > '/dev/null' 2>&1; ",
+    "pid": "shx --silent find --name 'target/deploy/vrf_client-keypair.json' > '/dev/null' 2>&1 || solana-keygen new --no-bip39-passphrase --silent target/deploy/vrf_client-keypair.json; solana-keygen pubkey target/deploy/vrf_client-keypair.json",
+    "test": "anchor test",
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
   },
   "dependencies": {
     "@project-serum/anchor": "^0.26.0",
     "@project-serum/borsh": "^0.2.5",
-    "@solana/web3.js": "^1.73.0",
-    "@switchboard-xyz/solana.js": "^2.0.116",
+    "@solana/web3.js": "^1.73.3",
+    "@switchboard-xyz/solana.js": "^2.0.128",
     "bn.js": "^5.2.1"
   },
   "devDependencies": {
@@ -18,6 +22,7 @@
     "chai": "^4.3.4",
     "mocha": "^9.0.3",
     "prettier": "^2.6.2",
+    "shx": "^0.3.4",
     "ts-mocha": "^10.0.0",
     "typescript": "^4.3.5"
   }

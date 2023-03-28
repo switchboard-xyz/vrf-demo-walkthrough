@@ -16,8 +16,8 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = "~0.26.0"
-anchor-spl = "~0.26.0"
-solana-program = "^1.13.5"
-switchboard-v2 = { version = "^0.1.20", features = ["devnet"] }
+anchor-lang = "~0.27.0"
+anchor-spl = "~0.27.0"
+solana-program = "~1.14.0"
+switchboard-v2 = "^0.1.23"
 bytemuck = "1.7.2"

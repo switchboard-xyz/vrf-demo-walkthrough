@@ -11,7 +11,7 @@ PDA pubkey, the VrfClientState struct, and some errors we'll be using.
 const STATE_SEED: &[u8] = b"CLIENTSEED";
 
 #[repr(packed)]
-#[account(zero_copy)]
+#[account(zero_copy(unsafe))]
 #[derive(Default)]
 pub struct VrfClientState {
     pub bump: u8,

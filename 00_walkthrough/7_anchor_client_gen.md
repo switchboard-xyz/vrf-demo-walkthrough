@@ -21,8 +21,7 @@ writing files...
 ```
 
 Now you can import the client into your tests or SDK. You will need to have the
-following as dependencies: `@solana/web3.js`, `bn.js`, and
-`@project-serum/borsh`.
+following as dependencies: `@solana/web3.js`, `bn.js`, and `@coral-xyz/borsh`.
 
 ```typescript
 import { Connection } from "@solana/web3.js";

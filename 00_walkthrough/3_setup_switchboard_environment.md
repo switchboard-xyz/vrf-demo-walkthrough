@@ -14,17 +14,17 @@ startup_wait = 10000
 [test.validator]
 url = "https://api.devnet.solana.com"
 
-[[test.validator.clone]] # switchboardProgramId
-address = "2TfB33aLaneQb5TNVwyDz3jSZXS6jdW2ARw1Dgf84XCG"
+[[test.validator.clone]] # sbv2 devnet programID
+address = "SW1TCH7qEPTdLsDHRgPuMQjbQxKdH2aBStViMFnt64f"
 
-[[test.validator.clone]] # switchboardIdlAddress
-address = "CKwZcshn4XDvhaWVH9EXnk3iu19t6t5xP2Sy2pD6TRDp"
+[[test.validator.clone]] # sbv2 devnet IDL
+address = "Fi8vncGpNKbq62gPo56G4toCehWNy77GgqGkTaAF5Lkk"
 
-[[test.validator.clone]] # switchboardProgramState
-address = "BYM81n8HvTJuqZU1PmTVcwZ9G8uoji7FKM6EaPkwphPt"
+[[test.validator.clone]] # sbv2 devnet SbState
+address = "CyZuD7RPDcrqCGbNvLCyqk6Py9cEZTKmNKujfPi3ynDd"
 
-[[test.validator.clone]] # switchboardVault
-address = "FVLfR6C2ckZhbSwBzZY4CX7YBcddUSge5BNeGQv5eKhy"
+[[test.validator.clone]] # sbv2 devnet tokenVault
+address = "7hkp1xfPBcD2t1vZMoWWQPzipHVcXeLAAaiGXdPSfDie"
 
 ```
 
@@ -39,12 +39,14 @@ Open `tests/vrf-client.ts` and add the following before hook. This will:
 ```typescript
 import "mocha";
 
-import * as anchor from "@project-serum/anchor";
-import { AnchorProvider } from "@project-serum/anchor";
+import * as anchor from "@coral-xyz/anchor";
+import { AnchorProvider } from "@coral-xyz/anchor";
 import * as sbv2 from "@switchboard-xyz/solana.js";
 import { VrfClient } from "../target/types/vrf_client";
 import { assert } from "chai";
 import { BN } from "bn.js";
+import { PublicKey } from "@solana/web3.js";
+import { NodeOracle } from "@switchboard-xyz/oracle";
 
 describe("vrf-client", () => {
   const provider = AnchorProvider.env();
@@ -56,7 +58,7 @@ describe("vrf-client", () => {
   const vrfSecret = anchor.web3.Keypair.generate();
   console.log(`VRF Account: ${vrfSecret.publicKey}`);
 
-  const [vrfClientKey] = anchor.utils.publicKey.findProgramAddressSync(
+  const [vrfClientKey] = PublicKey.findProgramAddressSync(
     [Buffer.from("CLIENTSEED"), vrfSecret.publicKey.toBytes()],
     program.programId
   );
@@ -73,41 +75,54 @@ describe("vrf-client", () => {
     ixData: vrfIxCoder.encode("consumeRandomness", ""), // pass any params for instruction here
   };
 
-  let switchboard: sbv2.SwitchboardTestContextV2;
+  let switchboard: sbv2.SwitchboardTestContext;
+  let oracle: NodeOracle;
   let vrfAccount: sbv2.VrfAccount;
 
   before(async () => {
-    switchboard = await sbv2.SwitchboardTestContextV2.loadFromProvider(
-      provider,
-      {
-        // You can provide a keypair to so the PDA schemes dont change between test runs
-        name: "Test Queue",
-        keypair: sbv2.SwitchboardTestContextV2.loadKeypair(
-          "~/.keypairs/queue.json"
+    switchboard = await sbv2.SwitchboardTestContext.loadFromProvider(provider, {
+      // You can provide a keypair to so the PDA schemes dont change between test runs
+      name: "Test Queue",
+      keypair: sbv2.SwitchboardTestContextV2.loadKeypair(
+        "~/.keypairs/queue.json"
+      ),
+      queueSize: 10,
+      reward: 0,
+      minStake: 0,
+      oracleTimeout: 900,
+      unpermissionedFeeds: true,
+      unpermissionedVrf: true,
+      enableBufferRelayers: true,
+      oracle: {
+        name: "Test Oracle",
+        enable: true,
+        stakingWalletKeypair: sbv2.SwitchboardTestContextV2.loadKeypair(
+          "~/.keypairs/oracleWallet.json"
         ),
-        queueSize: 10,
-        reward: 0,
-        minStake: 0,
-        oracleTimeout: 900,
-        unpermissionedFeeds: true,
-        unpermissionedVrf: true,
-        enableBufferRelayers: true,
-        oracle: {
-          name: "Test Oracle",
-          enable: true,
-          stakingWalletKeypair: sbv2.SwitchboardTestContextV2.loadKeypair(
-            "~/.keypairs/oracleWallet.json"
-          ),
-        },
-      }
-    );
-    await switchboard.start();
+      },
+    });
+
+    oracle = await NodeOracle.fromReleaseChannel({
+      chain: "solana",
+      releaseChannel: "testnet",
+      network: "localnet", // disables production capabilities like monitoring and alerts
+      rpcUrl: switchboard.program.connection.rpcEndpoint,
+      oracleKey: switchboard.oracle.publicKey.toBase58(),
+      secretPath: switchboard.walletPath,
+      silent: false, // set to true to suppress oracle logs in the console
+      envVariables: {
+        VERBOSE: "1",
+        DEBUG: "1",
+        DISABLE_NONCE_QUEUE: "1",
+        DISABLE_METRICS: "1",
+      },
+    });
+
+    await oracle.startAndAwait();
   });
 
   after(async () => {
-    if (switchboard) {
-      switchboard.stop();
-    }
+    oracle?.stop();
   });
 
   it("init_client", async () => {

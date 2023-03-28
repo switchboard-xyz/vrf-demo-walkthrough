@@ -14,10 +14,10 @@ In `programs/vrf-client/Cargo.toml` add the following lines
 
 ```toml
 [dependencies]
-anchor-lang = "~0.26.0"
-anchor-spl = "~0.26.0"
-solana-program = "^1.13.5"
-switchboard-v2 = { version = "^0.1.20", features = ["devnet"] }
+anchor-lang = "~0.27.0"
+anchor-spl = "~0.27.0"
+solana-program = "~1.14.0"
+switchboard-v2 = "^0.1.23"
 bytemuck = "1.7.2"
 ```
 
@@ -25,13 +25,14 @@ Install npm packages
 
 ```bash
 yarn add \
-        @switchboard-xyz/solana.js \
+        @switchboard-xyz/solana.js^2.1.4 \
         @solana/web3.js \
-        @project-serum/anchor@^0.26.0 \
-        @project-serum/borsh \
+        @coral-xyz/anchor@^0.27.0 \
+        @coral-xyz/borsh^0.27.0 \
         bn.js
 yarn add -D \
         @switchboard-xyz/cli@^2 \
+        @switchboard-xyz/oracle \
         anchor-client-gen \
         @types/bn.js \
         shx

@@ -95,8 +95,8 @@ And finally we'll fix up and run the test. Update `tests/vrf-client.ts`
 ```typescript
 import "mocha";
 
-import * as anchor from "@project-serum/anchor";
-import { AnchorProvider } from "@project-serum/anchor";
+import * as anchor from "@coral-xyz/anchor";
+import { AnchorProvider } from "@coral-xyz/anchor";
 import * as sbv2 from "@switchboard-xyz/solana.js";
 import { VrfClient } from "../target/types/vrf_client";
 import { assert } from "chai";

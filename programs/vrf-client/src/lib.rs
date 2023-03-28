@@ -40,7 +40,7 @@ pub mod vrf_client {
 const STATE_SEED: &[u8] = b"CLIENTSEED";
 
 #[repr(packed)]
-#[account(zero_copy)]
+#[account(zero_copy(unsafe))]
 #[derive(Default)]
 pub struct VrfClientState {
     pub bump: u8,

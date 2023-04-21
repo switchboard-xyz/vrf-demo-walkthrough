@@ -22,23 +22,76 @@ creating a VRF Account, use Switchboard's devnet permissionless queue located at
 `uPeRMdfPmrPqgRWSrjAnAkH78RqAhe5kXoW6vBYRqFX`.
 
 ```diff
-const vrfAccount = await VrfAccount.create(switchboard.program, {
-    keypair: vrfKeypair,
-    authority: vrfClientKey,
--    queue: switchboard.queue,
-+    queue: new QueueAccount(switchboard.program, publicKey: new PublicKey("uPeRMdfPmrPqgRWSrjAnAkH78RqAhe5kXoW6vBYRqFX")),
-    callback: {
-    programId: program.programId,
-    accounts: [
-        { pubkey: vrfClientKey, isSigner: false, isWritable: true },
-        { pubkey: vrfKeypair.publicKey, isSigner: false, isWritable: false },
-    ],
-    ixData: new anchor.BorshInstructionCoder(program.idl).encode(
-        "consumeRandomness",
-        ""
-    ),
-    },
-});
+describe("vrf-client", () => {
+     ixData: vrfIxCoder.encode("consumeRandomness", ""), // pass any params for instruction here
+   };
+
+-  let switchboard: sbv2.SwitchboardTestContext;
++  let switchboard: {
++    program: sbv2.SwitchboardProgram;
++    queue: sbv2.QueueAccount;
++  };
+   let oracle: NodeOracle;
+   let vrfAccount: sbv2.VrfAccount;
+
+   before(async () => {
+-    switchboard = await sbv2.SwitchboardTestContext.loadFromProvider(
+-      provider,
+-      {
+-        // You can provide a keypair to so the PDA schemes dont change between test runs
+-        name: "Test Queue",
+-        keypair: sbv2.SwitchboardTestContext.loadKeypair(
+-          "~/.keypairs/queue.json"
+-        ),
+-        queueSize: 10,
+-        reward: 0,
+-        minStake: 0,
+-        oracleTimeout: 900,
+-        unpermissionedFeeds: true,
+-        unpermissionedVrf: true,
+-        enableBufferRelayers: true,
+-        oracle: {
+-          name: "Test Oracle",
+-          enable: true,
+-          stakingWalletKeypair: sbv2.SwitchboardTestContext.loadKeypair(
+-            "~/.keypairs/oracleWallet.json"
+-          ),
+-        },
+-      }
++    const switchboardProgram = await sbv2.SwitchboardProgram.fromProvider(
++      provider
+     );
+-
+-    oracle = await NodeOracle.fromReleaseChannel({
+-      chain: "solana",
+-      releaseChannel: "testnet",
+-      network: "localnet", // disables production capabilities like monitoring and alerts
+-      rpcUrl: switchboard.program.connection.rpcEndpoint,
+-      oracleKey: switchboard.oracle.publicKey.toBase58(),
+-      secretPath: switchboard.walletPath,
+-      silent: false, // set to true to suppress oracle logs in the console
+-      envVariables: {
+-        VERBOSE: "1",
+-        DEBUG: "1",
+-        DISABLE_NONCE_QUEUE: "1",
+-        DISABLE_METRICS: "1",
+-      },
+-    });
+-
+-    await oracle.startAndAwait();
+-  });
+-
+-  after(async () => {
+-    oracle?.stop();
++    const [queueAccount, queue] = await sbv2.QueueAccount.load(
++      switchboardProgram,
++      "uPeRMdfPmrPqgRWSrjAnAkH78RqAhe5kXoW6vBYRqFX"
++    );
++    switchboard = { program: switchboardProgram, queue: queueAccount };
+   });
+
+   it("init_client", async () => {
+
 ```
 
 Run the following command to deploy your program to devnet
